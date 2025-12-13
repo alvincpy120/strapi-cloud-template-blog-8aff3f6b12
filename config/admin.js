@@ -17,16 +17,21 @@ module.exports = ({ env }) => ({
   preview: {
     enabled: true,
     config: {
-      allowedOrigins: env('CLIENT_URL'),
+      allowedOrigins: [env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app')],
       async handler(uid, { documentId, locale, status }) {
+        // Fetch the document to get the slug
         const document = await strapi.documents(uid).findOne({ documentId });
-        const slug = document?.slug;
         
-        const previewSecret = env('PREVIEW_SECRET', 'strapi-preview-secret');
-        const clientUrl = env('CLIENT_URL');
+        if (!document?.slug) {
+          // Fallback to documentId if no slug
+          const clientUrl = env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app');
+          return `${clientUrl}/preview?slug=${documentId}`;
+        }
         
-        // Return the URL - Strapi will open it in a new tab
-        return `${clientUrl}/preview?secret=${previewSecret}&slug=${slug}`;
+        const clientUrl = env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app');
+        
+        // Return the preview URL - Strapi opens this in iframe/new tab
+        return `${clientUrl}/preview?slug=${document.slug}`;
       },
     },
   },
