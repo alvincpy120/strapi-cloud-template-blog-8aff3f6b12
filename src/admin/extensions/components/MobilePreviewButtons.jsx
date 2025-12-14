@@ -24,7 +24,7 @@ const MobilePreviewButtons = () => {
     return null;
   }
 
-  const previewUrl = `https://c7bd1f00-a4f7-46af-a62c-57927c218eef.lovableproject.com/article/${articleSlug}?preview=true&mobile=true`;
+  const previewUrl = `https://cozy-thermometer-spot.lovable.app/article/${articleSlug}?preview=true&mobile=true`;
 
   const handlePreview = () => {
     window.open(previewUrl, '_blank', 'width=375,height=812');
