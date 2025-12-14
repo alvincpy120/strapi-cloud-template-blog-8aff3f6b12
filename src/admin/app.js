@@ -1,3 +1,5 @@
+import MobilePreviewButtons from './extensions/components/MobilePreviewButtons.jsx';
+
 const config = {
   locales: [
     // 'ar',
@@ -30,7 +32,26 @@ const config = {
 };
 
 const bootstrap = (app) => {
-  console.log(app);
+  console.log('Strapi admin bootstrap:', app);
+  
+  try {
+    // Strapi v5 syntax - get the content-manager plugin first
+    const contentManager = app.getPlugin('content-manager');
+    console.log('Content Manager plugin:', contentManager);
+    
+    if (contentManager && typeof contentManager.injectComponent === 'function') {
+      contentManager.injectComponent('editView', 'right-links', {
+        name: 'MobilePreviewButtons',
+        Component: MobilePreviewButtons,
+      });
+      console.log('MobilePreviewButtons injected successfully');
+    } else {
+      console.error('content-manager plugin or injectComponent not available');
+      console.log('Available methods on contentManager:', contentManager ? Object.keys(contentManager) : 'undefined');
+    }
+  } catch (error) {
+    console.error('Failed to inject MobilePreviewButtons:', error);
+  }
 };
 
 export default {
