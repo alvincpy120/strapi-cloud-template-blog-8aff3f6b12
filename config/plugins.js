@@ -4,19 +4,5 @@ module.exports = ({ env }) => ({
       defaultDepth: 5,
     }
   },
-  'preview-button': {
-    config: {
-      contentTypes: [
-        {
-          uid: 'api::article.article',
-          draft: {
-            url: `${env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app')}/preview?slug={slug}`,
-          },
-          published: {
-            url: `${env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app')}/article/{slug}`,
-          },
-        },
-      ],
-    },
-  },
+  // Remove the 'preview-button' section entirely
 });
