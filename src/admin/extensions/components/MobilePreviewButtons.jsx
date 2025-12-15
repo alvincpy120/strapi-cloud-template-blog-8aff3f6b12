@@ -28,12 +28,13 @@ async function createSignature(data, secret) {
 }
 
 // Generate a secure preview token
-async function generatePreviewToken(slug) {
+async function generatePreviewToken(slug, contentType) {
   const timestamp = Date.now();
   const signature = await createSignature(`${slug}:${timestamp}`, PREVIEW_SECRET);
   
   const tokenData = {
     slug,
+    contentType,
     timestamp,
     signature
   };
@@ -42,19 +43,33 @@ async function generatePreviewToken(slug) {
 }
 
 const MobilePreviewButtons = () => {
-  const { form } = useContentManagerContext();
-  const slug = form?.values?.slug;
+  const context = useContentManagerContext();
+  const { form, contentType } = context;
+  const formSlug = form?.values?.slug;
+  
+  // Get content type info from context
+  const contentTypeUid = contentType?.uid;
+  
+  // Determine the preview URL based on content type
+  let previewUrl;
+  
+  if (contentTypeUid === 'api::about.about') {
+    // For About page, use /about
+    previewUrl = `${LOVABLE_APP_URL}/about?preview=true`;
+  } else if (formSlug) {
+    // For articles and other content with slugs, use /article/{slug}
+    previewUrl = `${LOVABLE_APP_URL}/article/${formSlug}?preview=true`;
+  } else {
+    // No valid URL can be generated
+    return null;
+  }
 
-  if (!slug) return null;
-
-  const handleDesktopPreview = async () => {
-    const token = await generatePreviewToken(slug);
-    window.open(`${LOVABLE_APP_URL}/preview?token=${token}`, '_blank');
+  const handleDesktopPreview = () => {
+    window.open(previewUrl, '_blank');
   };
 
-  const handleMobilePreview = async () => {
-    const token = await generatePreviewToken(slug);
-    window.open(`${LOVABLE_APP_URL}/preview?token=${token}&device=mobile`, '_blank');
+  const handleMobilePreview = () => {
+    window.open(`${previewUrl}&device=mobile`, '_blank');
   };
 
   const buttonStyle = {
