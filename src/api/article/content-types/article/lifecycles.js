@@ -269,6 +269,12 @@ async function triggerTranslation(article, params = {}) {
         return;
       }
       
+      // Truncate description to 80 characters (Strapi schema limit)
+      if (translatedData.description && translatedData.description.length > 80) {
+        translatedData.description = translatedData.description.substring(0, 77) + '...';
+        strapi.log.info(`[Translation] Description truncated to 80 chars`);
+      }
+      
       // Check if target locale already exists
       strapi.log.info(`[Translation] Checking if ${targetLocale} version exists for documentId: ${documentId}`);
       const existingTarget = await strapi.db.query('api::article.article').findOne({

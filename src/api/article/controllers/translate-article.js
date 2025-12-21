@@ -101,6 +101,12 @@ module.exports = {
       // Translate
       const translatedData = await translateService.translateArticle(fullArticle, sourceLocale, targetLocale);
       
+      // Truncate description to 80 characters (Strapi schema limit)
+      if (translatedData.description && translatedData.description.length > 80) {
+        translatedData.description = translatedData.description.substring(0, 77) + '...';
+        strapi.log.info(`[API] Description truncated to 80 chars`);
+      }
+      
       strapi.log.info(`[API] Translation completed: "${translatedData.title}"`);
       
       // Check if target locale already exists
