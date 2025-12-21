@@ -34,10 +34,10 @@ module.exports = {
         
         if (existingArticle?.id) {
           params.data.slug = String(existingArticle.id);
-          console.log(`[Auto-Slug] beforeUpdate: Setting slug to ${existingArticle.id} for locale ${params.where.locale || 'default'}`);
+          strapi.log.info(`[Auto-Slug] beforeUpdate: Setting slug to ${existingArticle.id} for locale ${params.where.locale || 'default'}`);
         }
       } catch (error) {
-        console.log(`[Auto-Slug] beforeUpdate error: ${error.message}`);
+        strapi.log.error(`[Auto-Slug] beforeUpdate error: ${error.message}`);
       }
     }
   },
@@ -47,12 +47,14 @@ module.exports = {
    */
   async afterCreate(event) {
     const { result, params } = event;
-    console.log('[Lifecycle] afterCreate triggered');
+    strapi.log.info('[Lifecycle] afterCreate triggered');
+    strapi.log.info(`[Lifecycle] afterCreate - Article ID: ${result?.id}, documentId: ${result?.documentId}`);
+    strapi.log.info(`[Lifecycle] afterCreate - params.locale: ${params?.locale}, result.locale: ${result?.locale}, params.data?.locale: ${params?.data?.locale}`);
     
     // Set slug to article ID
     await setSlugToArticleId(result);
     
-    // Trigger translation
+    // Trigger translation with enhanced params
     await handleArticleTranslation(result, params);
   },
 
@@ -61,7 +63,8 @@ module.exports = {
    */
   async afterUpdate(event) {
     const { result, params } = event;
-    console.log('[Lifecycle] afterUpdate triggered');
+    strapi.log.info('[Lifecycle] afterUpdate triggered');
+    strapi.log.info(`[Lifecycle] afterUpdate - Article ID: ${result?.id}, locale: ${result?.locale || params?.locale}`);
     await handleArticleTranslation(result, params);
   },
 };
@@ -71,7 +74,7 @@ module.exports = {
  */
 async function setSlugToArticleId(article) {
   if (!article?.id) {
-    console.log('[Auto-Slug] No article id, skipping slug update');
+    strapi.log.warn('[Auto-Slug] No article id, skipping slug update');
     return;
   }
 
@@ -79,27 +82,27 @@ async function setSlugToArticleId(article) {
   
   // Prevent infinite loops
   if (slugUpdatingArticles.has(article.id)) {
-    console.log(`[Auto-Slug] Already updating slug for ${article.id}, skipping`);
+    strapi.log.info(`[Auto-Slug] Already updating slug for ${article.id}, skipping`);
     return;
   }
 
   // Check if slug already matches article ID
   if (article.slug === articleId) {
-    console.log(`[Auto-Slug] Slug already set to ${articleId}, skipping`);
+    strapi.log.info(`[Auto-Slug] Slug already set to ${articleId}, skipping`);
     return;
   }
 
   try {
     slugUpdatingArticles.add(article.id);
-    console.log(`[Auto-Slug] Setting slug to ${articleId} for article ${article.id}`);
+    strapi.log.info(`[Auto-Slug] Setting slug to ${articleId} for article ${article.id}`);
 
     await strapi.entityService.update('api::article.article', article.id, {
       data: { slug: articleId },
     });
 
-    console.log(`[Auto-Slug] Successfully set slug to ${articleId}`);
+    strapi.log.info(`[Auto-Slug] Successfully set slug to ${articleId}`);
   } catch (error) {
-    console.log(`[Auto-Slug] Failed to set slug: ${error.message}`);
+    strapi.log.error(`[Auto-Slug] Failed to set slug: ${error.message}`);
   } finally {
     setTimeout(() => {
       slugUpdatingArticles.delete(article.id);
@@ -112,21 +115,31 @@ async function handleArticleTranslation(article, params) {
   let processingKey = null;
   
   try {
-    // Get locale from params or result
-    const sourceLocale = params?.locale || article?.locale;
-    
-    console.log(`[Auto-Translate] Event triggered. Article ID: ${article?.id}, Locale: ${sourceLocale}`);
-    console.log(`[Auto-Translate] Article documentId: ${article?.documentId}`);
-
     // Skip if no article
     if (!article) {
-      console.log('[Auto-Translate] No article in event, skipping');
+      strapi.log.warn('[Auto-Translate] No article in event, skipping');
       return;
     }
 
-    // Skip if no locale
+    // Get locale from multiple sources (API calls may pass locale differently)
+    let sourceLocale = params?.locale || params?.data?.locale || article?.locale;
+    
+    strapi.log.info(`[Auto-Translate] Event triggered. Article ID: ${article?.id}, Initial Locale: ${sourceLocale}`);
+    strapi.log.info(`[Auto-Translate] Article documentId: ${article?.documentId}`);
+
+    // If locale is not available, fetch the article from database to get locale
+    if (!sourceLocale && article?.id) {
+      strapi.log.info('[Auto-Translate] Locale not found in params/result, fetching from database...');
+      const dbArticle = await strapi.db.query('api::article.article').findOne({
+        where: { id: article.id },
+      });
+      sourceLocale = dbArticle?.locale;
+      strapi.log.info(`[Auto-Translate] Fetched locale from database: ${sourceLocale}`);
+    }
+
+    // Skip if still no locale
     if (!sourceLocale) {
-      console.log('[Auto-Translate] No locale found, skipping');
+      strapi.log.warn('[Auto-Translate] No locale found after database lookup, skipping');
       return;
     }
 
@@ -139,7 +152,7 @@ async function handleArticleTranslation(article, params) {
       targetLocale = 'en';
     } else {
       // Unsupported locale, skip translation
-      console.log(`[Auto-Translate] Skipping unsupported locale: ${sourceLocale}`);
+      strapi.log.info(`[Auto-Translate] Skipping unsupported locale: ${sourceLocale}`);
       return;
     }
 
@@ -148,24 +161,24 @@ async function handleArticleTranslation(article, params) {
 
     // Prevent infinite loops (translation triggering another translation)
     if (processingArticles.has(processingKey)) {
-      console.log(`[Auto-Translate] Already processing ${processingKey}, skipping`);
+      strapi.log.info(`[Auto-Translate] Already processing ${processingKey}, skipping`);
       return;
     }
 
     // Check if DEEPL_API_KEY is set
     if (!process.env.DEEPL_API_KEY) {
-      console.log('[Auto-Translate] DEEPL_API_KEY not set, skipping translation');
+      strapi.log.warn('[Auto-Translate] DEEPL_API_KEY not set, skipping translation');
       return;
     }
 
     processingArticles.add(processingKey);
-    console.log(`[Auto-Translate] Starting translation. Article: "${article.title || article.id}", From: ${sourceLocale}, To: ${targetLocale}`);
+    strapi.log.info(`[Auto-Translate] Starting translation. Article: "${article.title || article.id}", From: ${sourceLocale}, To: ${targetLocale}`);
 
     // Get the translate service
     const translateService = strapi.service('api::translate.translate');
 
     if (!translateService) {
-      console.log('[Auto-Translate] Translate service not found');
+      strapi.log.error('[Auto-Translate] Translate service not found');
       return;
     }
 
@@ -176,16 +189,16 @@ async function handleArticleTranslation(article, params) {
     });
 
     if (!fullArticle) {
-      console.log(`[Auto-Translate] Could not find article ${article.id}`);
+      strapi.log.error(`[Auto-Translate] Could not find article ${article.id}`);
       return;
     }
 
-    console.log(`[Auto-Translate] Article found. Title: "${fullArticle.title}"`);
+    strapi.log.info(`[Auto-Translate] Article found. Title: "${fullArticle.title}"`);
 
     // Translate the article
     const translatedData = await translateService.translateArticle(fullArticle, sourceLocale, targetLocale);
 
-    console.log(`[Auto-Translate] Translation completed. Translated title: "${translatedData.title}"`);
+    strapi.log.info(`[Auto-Translate] Translation completed. Translated title: "${translatedData.title}"`);
 
     // Check if target locale version already exists using documentId
     let existingLocalization = null;
@@ -200,7 +213,7 @@ async function handleArticleTranslation(article, params) {
 
     if (existingLocalization) {
       // Update existing localization - set slug to this article's ID
-      console.log(`[Auto-Translate] Updating existing ${targetLocale} version (ID: ${existingLocalization.id})`);
+      strapi.log.info(`[Auto-Translate] Updating existing ${targetLocale} version (ID: ${existingLocalization.id})`);
       
       await strapi.entityService.update('api::article.article', existingLocalization.id, {
         data: {
@@ -210,10 +223,10 @@ async function handleArticleTranslation(article, params) {
         locale: targetLocale,
       });
       
-      console.log(`[Auto-Translate] Successfully updated ${targetLocale} version with slug: ${existingLocalization.id}`);
+      strapi.log.info(`[Auto-Translate] Successfully updated ${targetLocale} version with slug: ${existingLocalization.id}`);
     } else {
       // Create new localization using document API
-      console.log(`[Auto-Translate] Creating new ${targetLocale} version`);
+      strapi.log.info(`[Auto-Translate] Creating new ${targetLocale} version`);
 
       try {
         let newArticle = null;
@@ -244,7 +257,7 @@ async function handleArticleTranslation(article, params) {
           await strapi.entityService.update('api::article.article', newArticle.id, {
             data: { slug: String(newArticle.id) },
           });
-          console.log(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${newArticle.id}) with slug: ${newArticle.id}`);
+          strapi.log.info(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${newArticle.id}) with slug: ${newArticle.id}`);
         } else {
           // If we don't have the ID, query for it
           const createdArticle = await strapi.db.query('api::article.article').findOne({
@@ -254,11 +267,11 @@ async function handleArticleTranslation(article, params) {
             await strapi.entityService.update('api::article.article', createdArticle.id, {
               data: { slug: String(createdArticle.id) },
             });
-            console.log(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${createdArticle.id}) with slug: ${createdArticle.id}`);
+            strapi.log.info(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${createdArticle.id}) with slug: ${createdArticle.id}`);
           }
         }
       } catch (docError) {
-        console.log(`[Auto-Translate] Document API failed, trying entityService: ${docError.message}`);
+        strapi.log.error(`[Auto-Translate] Document API failed, trying entityService: ${docError.message}`);
         
         // Fallback to entityService
         const newArticle = await strapi.entityService.create('api::article.article', {
@@ -274,16 +287,16 @@ async function handleArticleTranslation(article, params) {
           await strapi.entityService.update('api::article.article', newArticle.id, {
             data: { slug: String(newArticle.id) },
           });
-          console.log(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${newArticle.id}) with slug: ${newArticle.id}`);
+          strapi.log.info(`[Auto-Translate] Successfully created ${targetLocale} version (ID: ${newArticle.id}) with slug: ${newArticle.id}`);
         }
       }
     }
 
-    console.log(`[Auto-Translate] Translation process completed successfully for ${targetLocale}`);
+    strapi.log.info(`[Auto-Translate] Translation process completed successfully for ${targetLocale}`);
 
   } catch (error) {
-    console.log(`[Auto-Translate] Translation failed: ${error.message}`);
-    console.log(`[Auto-Translate] Stack trace:`, error.stack);
+    strapi.log.error(`[Auto-Translate] Translation failed: ${error.message}`);
+    strapi.log.error(`[Auto-Translate] Stack trace:`, error.stack);
   } finally {
     // Remove from processing set after a delay to handle any edge cases
     if (processingKey) {
