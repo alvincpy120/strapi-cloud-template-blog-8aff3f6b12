@@ -65,10 +65,36 @@ module.exports = {
         return ctx.badRequest('Translate service not found');
       }
       
-      // Get full article with relations
-      const fullArticle = await strapi.entityService.findOne('api::article.article', article.id, {
-        populate: ['author', 'category', 'cover', 'blocks'],
-      });
+      // Get full article with relations using documents API (works better with i18n in Strapi v5)
+      strapi.log.info(`[API] Fetching full article with documentId: ${documentId}, locale: ${sourceLocale}`);
+      
+      let fullArticle;
+      try {
+        // Try using documents API first (Strapi v5 preferred method)
+        fullArticle = await strapi.documents('api::article.article').findOne({
+          documentId: documentId,
+          locale: sourceLocale,
+          populate: ['author', 'category', 'cover', 'blocks'],
+        });
+      } catch (docError) {
+        strapi.log.warn(`[API] Documents API failed: ${docError.message}, trying db.query`);
+        // Fallback to db.query with manual populate
+        fullArticle = await strapi.db.query('api::article.article').findOne({
+          where: { id: article.id },
+          populate: ['author', 'category', 'cover', 'blocks'],
+        });
+      }
+      
+      if (!fullArticle) {
+        strapi.log.error(`[API] Could not fetch full article data`);
+        return ctx.badRequest('Could not fetch article data for translation');
+      }
+      
+      // Use data from the basic query if fullArticle doesn't have title
+      if (!fullArticle.title) {
+        fullArticle.title = article.title;
+        fullArticle.description = article.description;
+      }
       
       strapi.log.info(`[API] Translating article: "${fullArticle.title}"`);
       
