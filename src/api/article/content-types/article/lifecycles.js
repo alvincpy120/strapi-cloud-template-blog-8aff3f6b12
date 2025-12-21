@@ -73,20 +73,16 @@ module.exports = {
     strapi.log.info(`[Lifecycle] afterCreate - Article ID: ${result?.id}, documentId: ${result?.documentId}`);
     strapi.log.info(`[Lifecycle] afterCreate - params.locale: ${params?.locale}, result.locale: ${result?.locale}, params.data?.locale: ${params?.data?.locale}`);
     
-    // Set slug to article ID (await this one)
+    // Set slug to article ID
     await setSlugToArticleId(result);
     
-    // Run translation in background (fire-and-forget) to not block the response
-    // This ensures any errors don't prevent the article from being saved
-    setImmediate(async () => {
-      try {
-        strapi.log.info('[Lifecycle] Starting background translation for afterCreate...');
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s for data to settle
-        await handleArticleTranslation(result, params, true);
-      } catch (err) {
-        strapi.log.error(`[Lifecycle] Background translation error: ${err.message}`);
-      }
-    });
+    // Run translation SYNCHRONOUSLY (required for serverless/cloud environments)
+    try {
+      strapi.log.info('[Lifecycle] Starting translation for afterCreate...');
+      await handleArticleTranslation(result, params, true);
+    } catch (err) {
+      strapi.log.error(`[Lifecycle] Translation error in afterCreate: ${err.message}`);
+    }
   },
 
   /**
@@ -98,15 +94,13 @@ module.exports = {
     strapi.log.info('[Lifecycle] ====== afterUpdate TRIGGERED ======');
     strapi.log.info(`[Lifecycle] afterUpdate - Article ID: ${result?.id}, locale: ${result?.locale || params?.locale}`);
     
-    // Run translation in background (fire-and-forget)
-    setImmediate(async () => {
-      try {
-        strapi.log.info('[Lifecycle] Starting background translation for afterUpdate...');
-        await handleArticleTranslation(result, params, false);
-      } catch (err) {
-        strapi.log.error(`[Lifecycle] Background translation error: ${err.message}`);
-      }
-    });
+    // Run translation SYNCHRONOUSLY (required for serverless/cloud environments)
+    try {
+      strapi.log.info('[Lifecycle] Starting translation for afterUpdate...');
+      await handleArticleTranslation(result, params, false);
+    } catch (err) {
+      strapi.log.error(`[Lifecycle] Translation error in afterUpdate: ${err.message}`);
+    }
   },
 };
 
