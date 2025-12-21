@@ -204,21 +204,46 @@ async function triggerTranslation(article) {
         return;
       }
       
-      // Get full article with relations
-      const fullArticle = await strapi.entityService.findOne('api::article.article', article.id, {
-        populate: ['author', 'category', 'cover', 'blocks'],
-      });
+      // Get full article with relations - MUST specify locale for i18n content
+      strapi.log.info(`[Translation] Loading full article (ID: ${article.id}, locale: ${sourceLocale})`);
+      
+      let fullArticle;
+      try {
+        fullArticle = await strapi.entityService.findOne('api::article.article', article.id, {
+          populate: ['author', 'category', 'cover', 'blocks'],
+          locale: sourceLocale,
+        });
+      } catch (fetchError) {
+        strapi.log.error(`[Translation] Error fetching article: ${fetchError.message}`);
+        // Try without locale
+        fullArticle = await strapi.entityService.findOne('api::article.article', article.id, {
+          populate: ['author', 'category', 'cover', 'blocks'],
+        });
+      }
       
       if (!fullArticle) {
-        strapi.log.error('[Translation] Could not load full article');
+        strapi.log.error('[Translation] Could not load full article - article is null');
         return;
       }
       
-      strapi.log.info(`[Translation] Translating article: "${fullArticle.title}"`);
+      strapi.log.info(`[Translation] Full article loaded: title="${fullArticle.title}", locale=${fullArticle.locale}`);
       
       // Translate
-      const translatedData = await translateService.translateArticle(fullArticle, sourceLocale, targetLocale);
-      strapi.log.info(`[Translation] Translated title: "${translatedData.title}"`);
+      strapi.log.info(`[Translation] Calling translateArticle service...`);
+      let translatedData;
+      try {
+        translatedData = await translateService.translateArticle(fullArticle, sourceLocale, targetLocale);
+        strapi.log.info(`[Translation] Translation successful! Translated title: "${translatedData.title}"`);
+      } catch (translateError) {
+        strapi.log.error(`[Translation] DeepL translation failed: ${translateError.message}`);
+        strapi.log.error(translateError.stack);
+        return;
+      }
+      
+      if (!translatedData || !translatedData.title) {
+        strapi.log.error('[Translation] Translation returned empty data');
+        return;
+      }
       
       // Check if target locale already exists
       strapi.log.info(`[Translation] Checking if ${targetLocale} version exists for documentId: ${documentId}`);
@@ -243,22 +268,31 @@ async function triggerTranslation(article) {
         strapi.log.info(`[Translation] Updated ${targetLocale} article successfully`);
       } else {
         // Create new localization
-        strapi.log.info(`[Translation] Creating new ${targetLocale} article`);
+        strapi.log.info(`[Translation] Creating new ${targetLocale} article for documentId: ${documentId}`);
+        strapi.log.info(`[Translation] Data to create: title="${translatedData.title}"`);
         
-        const newArticle = await strapi.documents('api::article.article').update({
-          documentId: documentId,
-          locale: targetLocale,
-          data: {
-            title: translatedData.title,
-            description: translatedData.description,
-            cover_text: translatedData.cover_text,
-            author: translatedData.author,
-            category: translatedData.category,
-            cover: translatedData.cover,
-            blocks: translatedData.blocks,
-            publishedAt: null,
-          },
-        });
+        let newArticle;
+        try {
+          newArticle = await strapi.documents('api::article.article').update({
+            documentId: documentId,
+            locale: targetLocale,
+            data: {
+              title: translatedData.title,
+              description: translatedData.description || '',
+              cover_text: translatedData.cover_text || '',
+              author: translatedData.author,
+              category: translatedData.category,
+              cover: translatedData.cover,
+              blocks: translatedData.blocks || [],
+              publishedAt: null,
+            },
+          });
+          strapi.log.info(`[Translation] strapi.documents().update() succeeded`);
+        } catch (createError) {
+          strapi.log.error(`[Translation] Failed to create ${targetLocale} article: ${createError.message}`);
+          strapi.log.error(createError.stack);
+          return;
+        }
         
         strapi.log.info(`[Translation] Created new article, result: ${JSON.stringify(newArticle?.id || newArticle?.documentId || 'unknown')}`);
         
