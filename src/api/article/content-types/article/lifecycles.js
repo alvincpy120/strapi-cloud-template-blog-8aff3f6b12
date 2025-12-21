@@ -36,6 +36,8 @@ module.exports = {
   async beforeUpdate(event) {
     const { params } = event;
     
+    strapi.log.info('[Lifecycle] ====== beforeUpdate TRIGGERED ======');
+    
     // Get the article ID from the database using documentId AND locale
     if (params?.where?.documentId && params?.data) {
       try {
@@ -66,18 +68,25 @@ module.exports = {
    */
   async afterCreate(event) {
     const { result, params } = event;
-    strapi.log.info('[Lifecycle] afterCreate triggered');
+    
+    strapi.log.info('[Lifecycle] ====== afterCreate TRIGGERED ======');
     strapi.log.info(`[Lifecycle] afterCreate - Article ID: ${result?.id}, documentId: ${result?.documentId}`);
     strapi.log.info(`[Lifecycle] afterCreate - params.locale: ${params?.locale}, result.locale: ${result?.locale}, params.data?.locale: ${params?.data?.locale}`);
     
-    // Set slug to article ID
+    // Set slug to article ID (await this one)
     await setSlugToArticleId(result);
     
-    // Small delay to ensure article is fully persisted before translation
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Trigger translation with enhanced params
-    await handleArticleTranslation(result, params, true);
+    // Run translation in background (fire-and-forget) to not block the response
+    // This ensures any errors don't prevent the article from being saved
+    setImmediate(async () => {
+      try {
+        strapi.log.info('[Lifecycle] Starting background translation for afterCreate...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s for data to settle
+        await handleArticleTranslation(result, params, true);
+      } catch (err) {
+        strapi.log.error(`[Lifecycle] Background translation error: ${err.message}`);
+      }
+    });
   },
 
   /**
@@ -85,9 +94,19 @@ module.exports = {
    */
   async afterUpdate(event) {
     const { result, params } = event;
-    strapi.log.info('[Lifecycle] afterUpdate triggered');
+    
+    strapi.log.info('[Lifecycle] ====== afterUpdate TRIGGERED ======');
     strapi.log.info(`[Lifecycle] afterUpdate - Article ID: ${result?.id}, locale: ${result?.locale || params?.locale}`);
-    await handleArticleTranslation(result, params, false);
+    
+    // Run translation in background (fire-and-forget)
+    setImmediate(async () => {
+      try {
+        strapi.log.info('[Lifecycle] Starting background translation for afterUpdate...');
+        await handleArticleTranslation(result, params, false);
+      } catch (err) {
+        strapi.log.error(`[Lifecycle] Background translation error: ${err.message}`);
+      }
+    });
   },
 };
 
@@ -136,6 +155,8 @@ async function handleArticleTranslation(article, params, isNewArticle = false) {
   let targetLocale = null;
   let processingKey = null;
   
+  strapi.log.info('[Auto-Translate] ====== handleArticleTranslation CALLED ======');
+  
   try {
     // Skip if no article
     if (!article) {
@@ -156,6 +177,7 @@ async function handleArticleTranslation(article, params, isNewArticle = false) {
       dbArticle = await strapi.db.query('api::article.article').findOne({
         where: { id: article.id },
       });
+      strapi.log.info(`[Auto-Translate] DB Article: id=${dbArticle?.id}, locale=${dbArticle?.locale}, documentId=${dbArticle?.documentId}`);
       
       if (!sourceLocale && dbArticle?.locale) {
         sourceLocale = dbArticle.locale;
@@ -177,6 +199,8 @@ async function handleArticleTranslation(article, params, isNewArticle = false) {
       return;
     }
 
+    strapi.log.info(`[Auto-Translate] Using documentId: ${documentId}, sourceLocale: ${sourceLocale}`);
+
     // Determine target locale - support multiple Chinese locale formats
     if (sourceLocale === 'en') {
       targetLocale = 'zh-Hant-HK';  // Your Traditional Chinese locale
@@ -188,18 +212,23 @@ async function handleArticleTranslation(article, params, isNewArticle = false) {
       return;
     }
 
+    strapi.log.info(`[Auto-Translate] Target locale determined: ${targetLocale}`);
+
     // Create a unique key for this translation operation
     processingKey = `translate-${documentId}-${sourceLocale}-${targetLocale}`;
 
     // Prevent infinite loops (translation triggering another translation)
     if (isProcessing(processingKey)) {
-      strapi.log.info(`[Auto-Translate] Already processing ${processingKey}, skipping`);
+      strapi.log.info(`[Auto-Translate] Already processing ${processingKey}, skipping to prevent loop`);
       return;
     }
 
     // Check if DEEPL_API_KEY is set
-    if (!process.env.DEEPL_API_KEY) {
-      strapi.log.warn('[Auto-Translate] DEEPL_API_KEY not set, skipping translation');
+    const deeplKey = process.env.DEEPL_API_KEY;
+    strapi.log.info(`[Auto-Translate] DEEPL_API_KEY set: ${deeplKey ? 'YES (length: ' + deeplKey.length + ')' : 'NO'}`);
+    
+    if (!deeplKey) {
+      strapi.log.error('[Auto-Translate] DEEPL_API_KEY not set! Please add it to environment variables.');
       return;
     }
 
