@@ -6,9 +6,28 @@
  * 2. Automatic translation (English ↔ Traditional Chinese)
  */
 
-// Track articles being processed to prevent infinite loops
-const processingArticles = new Set();
-const slugUpdatingArticles = new Set();
+// Use a simple object with timestamps for deduplication (works better in serverless)
+// Keys expire after 30 seconds
+const processingCache = {};
+const CACHE_EXPIRY_MS = 30000;
+
+function isProcessing(key) {
+  const entry = processingCache[key];
+  if (!entry) return false;
+  if (Date.now() - entry > CACHE_EXPIRY_MS) {
+    delete processingCache[key];
+    return false;
+  }
+  return true;
+}
+
+function setProcessing(key) {
+  processingCache[key] = Date.now();
+}
+
+function clearProcessing(key) {
+  delete processingCache[key];
+}
 
 module.exports = {
   /**
@@ -54,8 +73,11 @@ module.exports = {
     // Set slug to article ID
     await setSlugToArticleId(result);
     
+    // Small delay to ensure article is fully persisted before translation
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Trigger translation with enhanced params
-    await handleArticleTranslation(result, params);
+    await handleArticleTranslation(result, params, true);
   },
 
   /**
@@ -65,7 +87,7 @@ module.exports = {
     const { result, params } = event;
     strapi.log.info('[Lifecycle] afterUpdate triggered');
     strapi.log.info(`[Lifecycle] afterUpdate - Article ID: ${result?.id}, locale: ${result?.locale || params?.locale}`);
-    await handleArticleTranslation(result, params);
+    await handleArticleTranslation(result, params, false);
   },
 };
 
@@ -79,9 +101,10 @@ async function setSlugToArticleId(article) {
   }
 
   const articleId = String(article.id);
+  const cacheKey = `slug-${article.id}`;
   
   // Prevent infinite loops
-  if (slugUpdatingArticles.has(article.id)) {
+  if (isProcessing(cacheKey)) {
     strapi.log.info(`[Auto-Slug] Already updating slug for ${article.id}, skipping`);
     return;
   }
@@ -93,7 +116,7 @@ async function setSlugToArticleId(article) {
   }
 
   try {
-    slugUpdatingArticles.add(article.id);
+    setProcessing(cacheKey);
     strapi.log.info(`[Auto-Slug] Setting slug to ${articleId} for article ${article.id}`);
 
     await strapi.entityService.update('api::article.article', article.id, {
@@ -104,13 +127,12 @@ async function setSlugToArticleId(article) {
   } catch (error) {
     strapi.log.error(`[Auto-Slug] Failed to set slug: ${error.message}`);
   } finally {
-    setTimeout(() => {
-      slugUpdatingArticles.delete(article.id);
-    }, 2000);
+    // Clear cache after a delay
+    setTimeout(() => clearProcessing(cacheKey), 5000);
   }
 }
 
-async function handleArticleTranslation(article, params) {
+async function handleArticleTranslation(article, params, isNewArticle = false) {
   let targetLocale = null;
   let processingKey = null;
   
@@ -124,17 +146,21 @@ async function handleArticleTranslation(article, params) {
     // Get locale from multiple sources (API calls may pass locale differently)
     let sourceLocale = params?.locale || params?.data?.locale || article?.locale;
     
-    strapi.log.info(`[Auto-Translate] Event triggered. Article ID: ${article?.id}, Initial Locale: ${sourceLocale}`);
+    strapi.log.info(`[Auto-Translate] Event triggered. Article ID: ${article?.id}, Initial Locale: ${sourceLocale}, isNew: ${isNewArticle}`);
     strapi.log.info(`[Auto-Translate] Article documentId: ${article?.documentId}`);
 
-    // If locale is not available, fetch the article from database to get locale
-    if (!sourceLocale && article?.id) {
-      strapi.log.info('[Auto-Translate] Locale not found in params/result, fetching from database...');
-      const dbArticle = await strapi.db.query('api::article.article').findOne({
+    // Always fetch from database to ensure we have the correct data
+    let dbArticle = null;
+    if (article?.id) {
+      strapi.log.info('[Auto-Translate] Fetching article from database to ensure data is fresh...');
+      dbArticle = await strapi.db.query('api::article.article').findOne({
         where: { id: article.id },
       });
-      sourceLocale = dbArticle?.locale;
-      strapi.log.info(`[Auto-Translate] Fetched locale from database: ${sourceLocale}`);
+      
+      if (!sourceLocale && dbArticle?.locale) {
+        sourceLocale = dbArticle.locale;
+        strapi.log.info(`[Auto-Translate] Got locale from database: ${sourceLocale}`);
+      }
     }
 
     // Skip if still no locale
@@ -143,7 +169,13 @@ async function handleArticleTranslation(article, params) {
       return;
     }
 
-    const documentId = article.documentId;
+    // Use documentId from database if not available in result
+    const documentId = article.documentId || dbArticle?.documentId;
+    
+    if (!documentId) {
+      strapi.log.warn('[Auto-Translate] No documentId found, skipping translation');
+      return;
+    }
 
     // Determine target locale - support multiple Chinese locale formats
     if (sourceLocale === 'en') {
@@ -157,10 +189,10 @@ async function handleArticleTranslation(article, params) {
     }
 
     // Create a unique key for this translation operation
-    processingKey = `${documentId}-${sourceLocale}-${targetLocale}`;
+    processingKey = `translate-${documentId}-${sourceLocale}-${targetLocale}`;
 
     // Prevent infinite loops (translation triggering another translation)
-    if (processingArticles.has(processingKey)) {
+    if (isProcessing(processingKey)) {
       strapi.log.info(`[Auto-Translate] Already processing ${processingKey}, skipping`);
       return;
     }
@@ -171,7 +203,7 @@ async function handleArticleTranslation(article, params) {
       return;
     }
 
-    processingArticles.add(processingKey);
+    setProcessing(processingKey);
     strapi.log.info(`[Auto-Translate] Starting translation. Article: "${article.title || article.id}", From: ${sourceLocale}, To: ${targetLocale}`);
 
     // Get the translate service
@@ -298,11 +330,9 @@ async function handleArticleTranslation(article, params) {
     strapi.log.error(`[Auto-Translate] Translation failed: ${error.message}`);
     strapi.log.error(`[Auto-Translate] Stack trace:`, error.stack);
   } finally {
-    // Remove from processing set after a delay to handle any edge cases
+    // Clear processing cache after a delay
     if (processingKey) {
-      setTimeout(() => {
-        processingArticles.delete(processingKey);
-      }, 5000);
+      setTimeout(() => clearProcessing(processingKey), 10000);
     }
   }
 }
