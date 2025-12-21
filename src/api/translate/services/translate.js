@@ -163,11 +163,12 @@ module.exports = ({ strapi }) => ({
     }
 
     // Copy non-translatable fields
-    // Use documentId as slug for all localized versions (same slug across locales)
-    if (article.documentId) {
-      translatedData.slug = article.documentId;
+    // Use article ID as slug (will be updated by lifecycle hook after creation)
+    // For translated articles, we'll let the lifecycle hook set the correct ID
+    if (article.id) {
+      // Temporarily use source article ID, will be updated after creation
+      translatedData.slug = String(article.id);
     } else if (article.slug) {
-      // Fallback to existing slug if no documentId
       translatedData.slug = article.slug;
     }
 

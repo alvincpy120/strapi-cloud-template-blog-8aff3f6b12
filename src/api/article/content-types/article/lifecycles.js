@@ -2,7 +2,7 @@
 
 /**
  * Article lifecycle hooks for:
- * 1. Automatic slug generation (slug = documentId)
+ * 1. Automatic slug generation (slug = article ID)
  * 2. Automatic translation (English ↔ Traditional Chinese)
  */
 
@@ -12,28 +12,37 @@ const slugUpdatingArticles = new Set();
 
 module.exports = {
   /**
-   * Before update: Set slug to documentId
+   * Before update: Set slug to article ID
    */
   async beforeUpdate(event) {
     const { params } = event;
-    const documentId = params?.where?.documentId;
     
-    if (documentId && params?.data) {
-      // Always set slug to documentId
-      params.data.slug = documentId;
-      console.log(`[Auto-Slug] beforeUpdate: Setting slug to ${documentId}`);
+    // Get the article ID from the database using documentId
+    if (params?.where?.documentId && params?.data) {
+      try {
+        const existingArticle = await strapi.db.query('api::article.article').findOne({
+          where: { documentId: params.where.documentId },
+        });
+        
+        if (existingArticle?.id) {
+          params.data.slug = String(existingArticle.id);
+          console.log(`[Auto-Slug] beforeUpdate: Setting slug to ${existingArticle.id}`);
+        }
+      } catch (error) {
+        console.log(`[Auto-Slug] beforeUpdate error: ${error.message}`);
+      }
     }
   },
 
   /**
-   * After create: Set slug to documentId and trigger translation
+   * After create: Set slug to article ID and trigger translation
    */
   async afterCreate(event) {
     const { result, params } = event;
     console.log('[Lifecycle] afterCreate triggered');
     
-    // Set slug to documentId
-    await setSlugToDocumentId(result);
+    // Set slug to article ID
+    await setSlugToArticleId(result);
     
     // Trigger translation
     await handleArticleTranslation(result, params);
@@ -50,15 +59,15 @@ module.exports = {
 };
 
 /**
- * Set the article slug to its documentId
+ * Set the article slug to its numeric ID
  */
-async function setSlugToDocumentId(article) {
-  if (!article?.documentId || !article?.id) {
-    console.log('[Auto-Slug] No documentId or id, skipping slug update');
+async function setSlugToArticleId(article) {
+  if (!article?.id) {
+    console.log('[Auto-Slug] No article id, skipping slug update');
     return;
   }
 
-  const documentId = article.documentId;
+  const articleId = String(article.id);
   
   // Prevent infinite loops
   if (slugUpdatingArticles.has(article.id)) {
@@ -66,21 +75,21 @@ async function setSlugToDocumentId(article) {
     return;
   }
 
-  // Check if slug already matches documentId
-  if (article.slug === documentId) {
-    console.log(`[Auto-Slug] Slug already set to ${documentId}, skipping`);
+  // Check if slug already matches article ID
+  if (article.slug === articleId) {
+    console.log(`[Auto-Slug] Slug already set to ${articleId}, skipping`);
     return;
   }
 
   try {
     slugUpdatingArticles.add(article.id);
-    console.log(`[Auto-Slug] Setting slug to ${documentId} for article ${article.id}`);
+    console.log(`[Auto-Slug] Setting slug to ${articleId} for article ${article.id}`);
 
     await strapi.entityService.update('api::article.article', article.id, {
-      data: { slug: documentId },
+      data: { slug: articleId },
     });
 
-    console.log(`[Auto-Slug] Successfully set slug to ${documentId}`);
+    console.log(`[Auto-Slug] Successfully set slug to ${articleId}`);
   } catch (error) {
     console.log(`[Auto-Slug] Failed to set slug: ${error.message}`);
   } finally {
