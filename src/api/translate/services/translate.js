@@ -163,9 +163,12 @@ module.exports = ({ strapi }) => ({
     }
 
     // Copy non-translatable fields
-    if (article.slug) {
-      // Generate a new slug for target locale
-      translatedData.slug = `${article.slug}-${targetLocale}`;
+    // Use documentId as slug for all localized versions (same slug across locales)
+    if (article.documentId) {
+      translatedData.slug = article.documentId;
+    } else if (article.slug) {
+      // Fallback to existing slug if no documentId
+      translatedData.slug = article.slug;
     }
 
     // Copy relations (author, category, cover image)

@@ -1,29 +1,94 @@
 'use strict';
 
 /**
- * Article lifecycle hooks for automatic translation
- * 
- * When an article is created or updated:
- * - If locale is 'en' (English) → translate to 'zh-Hant-HK' (Traditional Chinese)
- * - If locale is 'zh-Hant-HK' (Traditional Chinese) → translate to 'en' (English)
+ * Article lifecycle hooks for:
+ * 1. Automatic slug generation (slug = documentId)
+ * 2. Automatic translation (English ↔ Traditional Chinese)
  */
 
 // Track articles being processed to prevent infinite loops
 const processingArticles = new Set();
+const slugUpdatingArticles = new Set();
 
 module.exports = {
+  /**
+   * Before update: Set slug to documentId
+   */
+  async beforeUpdate(event) {
+    const { params } = event;
+    const documentId = params?.where?.documentId;
+    
+    if (documentId && params?.data) {
+      // Always set slug to documentId
+      params.data.slug = documentId;
+      console.log(`[Auto-Slug] beforeUpdate: Setting slug to ${documentId}`);
+    }
+  },
+
+  /**
+   * After create: Set slug to documentId and trigger translation
+   */
   async afterCreate(event) {
     const { result, params } = event;
-    console.log('[Auto-Translate] afterCreate triggered');
+    console.log('[Lifecycle] afterCreate triggered');
+    
+    // Set slug to documentId
+    await setSlugToDocumentId(result);
+    
+    // Trigger translation
     await handleArticleTranslation(result, params);
   },
 
+  /**
+   * After update: Trigger translation
+   */
   async afterUpdate(event) {
     const { result, params } = event;
-    console.log('[Auto-Translate] afterUpdate triggered');
+    console.log('[Lifecycle] afterUpdate triggered');
     await handleArticleTranslation(result, params);
   },
 };
+
+/**
+ * Set the article slug to its documentId
+ */
+async function setSlugToDocumentId(article) {
+  if (!article?.documentId || !article?.id) {
+    console.log('[Auto-Slug] No documentId or id, skipping slug update');
+    return;
+  }
+
+  const documentId = article.documentId;
+  
+  // Prevent infinite loops
+  if (slugUpdatingArticles.has(article.id)) {
+    console.log(`[Auto-Slug] Already updating slug for ${article.id}, skipping`);
+    return;
+  }
+
+  // Check if slug already matches documentId
+  if (article.slug === documentId) {
+    console.log(`[Auto-Slug] Slug already set to ${documentId}, skipping`);
+    return;
+  }
+
+  try {
+    slugUpdatingArticles.add(article.id);
+    console.log(`[Auto-Slug] Setting slug to ${documentId} for article ${article.id}`);
+
+    await strapi.entityService.update('api::article.article', article.id, {
+      data: { slug: documentId },
+    });
+
+    console.log(`[Auto-Slug] Successfully set slug to ${documentId}`);
+  } catch (error) {
+    console.log(`[Auto-Slug] Failed to set slug: ${error.message}`);
+  } finally {
+    setTimeout(() => {
+      slugUpdatingArticles.delete(article.id);
+    }, 2000);
+  }
+}
 
 async function handleArticleTranslation(article, params) {
   let targetLocale = null;
