@@ -155,21 +155,35 @@ async function triggerTranslation(article) {
     let targetLocale = null;
     if (sourceLocale === 'en') {
       targetLocale = 'zh-Hant-HK';
-    } else if (sourceLocale.startsWith('zh')) {
+      strapi.log.info(`[Translation] Direction: English → Traditional Chinese`);
+    } else if (sourceLocale === 'zh-Hant-HK' || sourceLocale === 'zh-TW' || sourceLocale === 'zh-HK' || sourceLocale === 'zh' || (sourceLocale && sourceLocale.startsWith('zh'))) {
       targetLocale = 'en';
+      strapi.log.info(`[Translation] Direction: Traditional Chinese (${sourceLocale}) → English`);
     } else {
-      strapi.log.info(`[Translation] Unsupported locale: ${sourceLocale}, skipping`);
+      strapi.log.info(`[Translation] Unsupported locale: "${sourceLocale}", skipping`);
       return;
     }
     
-    strapi.log.info(`[Translation] Target locale: ${targetLocale}`);
+    strapi.log.info(`[Translation] Source: ${sourceLocale}, Target: ${targetLocale}`);
     
-    // Check for infinite loop
-    const translationKey = `translate-${documentId}-${sourceLocale}-${targetLocale}`;
+    // Check for infinite loop - use article ID + direction to be more specific
+    const translationKey = `translate-${article.id}-to-${targetLocale}`;
+    strapi.log.info(`[Translation] Checking translation key: ${translationKey}`);
+    
     if (isOperationActive(translationKey)) {
       strapi.log.info(`[Translation] Already translating ${translationKey}, skipping to prevent loop`);
       return;
     }
+    
+    // Also check reverse direction to prevent ping-pong
+    const reverseKey = `translate-from-${sourceLocale}-doc-${documentId}`;
+    if (isOperationActive(reverseKey)) {
+      strapi.log.info(`[Translation] Reverse translation ${reverseKey} in progress, skipping`);
+      return;
+    }
+    
+    // Mark both directions as active
+    startOperation(reverseKey);
     
     // Check DEEPL_API_KEY
     const deeplKey = process.env.DEEPL_API_KEY;
@@ -207,9 +221,12 @@ async function triggerTranslation(article) {
       strapi.log.info(`[Translation] Translated title: "${translatedData.title}"`);
       
       // Check if target locale already exists
+      strapi.log.info(`[Translation] Checking if ${targetLocale} version exists for documentId: ${documentId}`);
       const existingTarget = await strapi.db.query('api::article.article').findOne({
         where: { documentId: documentId, locale: targetLocale },
       });
+      
+      strapi.log.info(`[Translation] Existing ${targetLocale} article: ${existingTarget ? 'YES (ID: ' + existingTarget.id + ')' : 'NO'}`);
       
       if (existingTarget) {
         // Update existing
@@ -271,6 +288,7 @@ async function triggerTranslation(article) {
       
     } finally {
       endOperation(translationKey);
+      endOperation(reverseKey);
     }
     
   } catch (error) {
