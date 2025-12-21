@@ -31,13 +31,17 @@ function endOperation(key) {
 module.exports = {
   /**
    * After create: Set slug to article ID and trigger translation
+   * This triggers for BOTH admin panel and API (n8n) created articles
    */
   async afterCreate(event) {
-    const { result } = event;
+    const { result, params } = event;
     
     strapi.log.info('========================================');
     strapi.log.info('[Lifecycle] afterCreate TRIGGERED');
-    strapi.log.info(`[Lifecycle] Article ID: ${result?.id}, documentId: ${result?.documentId}, locale: ${result?.locale}`);
+    strapi.log.info(`[Lifecycle] Article ID: ${result?.id}, documentId: ${result?.documentId}`);
+    strapi.log.info(`[Lifecycle] result.locale: ${result?.locale}`);
+    strapi.log.info(`[Lifecycle] params.locale: ${params?.locale}`);
+    strapi.log.info(`[Lifecycle] params.data?.locale: ${params?.data?.locale}`);
     strapi.log.info('========================================');
     
     if (!result?.id) {
@@ -66,7 +70,8 @@ module.exports = {
       }
 
       // Step 2: Trigger translation
-      await triggerTranslation(result);
+      // Pass params to help detect locale from API calls
+      await triggerTranslation(result, params);
       
     } catch (error) {
       strapi.log.error(`[Lifecycle] afterCreate error: ${error.message}`);
@@ -78,13 +83,17 @@ module.exports = {
 
   /**
    * After update: Ensure slug is correct and trigger translation
+   * This triggers for BOTH admin panel and API (n8n) updated articles
    */
   async afterUpdate(event) {
-    const { result } = event;
+    const { result, params } = event;
     
     strapi.log.info('========================================');
     strapi.log.info('[Lifecycle] afterUpdate TRIGGERED');
-    strapi.log.info(`[Lifecycle] Article ID: ${result?.id}, documentId: ${result?.documentId}, locale: ${result?.locale}`);
+    strapi.log.info(`[Lifecycle] Article ID: ${result?.id}, documentId: ${result?.documentId}`);
+    strapi.log.info(`[Lifecycle] result.locale: ${result?.locale}`);
+    strapi.log.info(`[Lifecycle] params.locale: ${params?.locale}`);
+    strapi.log.info(`[Lifecycle] params.where?.locale: ${params?.where?.locale}`);
     strapi.log.info('========================================');
     
     if (!result?.id) {
@@ -113,7 +122,8 @@ module.exports = {
       }
 
       // Step 2: Trigger translation
-      await triggerTranslation(result);
+      // Pass params to help detect locale from API calls
+      await triggerTranslation(result, params);
       
     } catch (error) {
       strapi.log.error(`[Lifecycle] afterUpdate error: ${error.message}`);
@@ -126,8 +136,10 @@ module.exports = {
 
 /**
  * Trigger translation for an article
+ * @param {object} article - The article from lifecycle event
+ * @param {object} params - The params from lifecycle event (contains locale info for API calls)
  */
-async function triggerTranslation(article) {
+async function triggerTranslation(article, params = {}) {
   strapi.log.info('[Translation] ====== Starting translation process ======');
   
   try {
@@ -141,8 +153,20 @@ async function triggerTranslation(article) {
       return;
     }
     
-    const sourceLocale = dbArticle.locale;
-    const documentId = dbArticle.documentId;
+    // Try to get locale from multiple sources (API calls may pass it differently)
+    let sourceLocale = dbArticle.locale || 
+                       article.locale || 
+                       params?.locale || 
+                       params?.data?.locale ||
+                       params?.where?.locale;
+    
+    // If still no locale, default to 'en' (common default for APIs)
+    if (!sourceLocale) {
+      strapi.log.warn('[Translation] No locale found in article or params, defaulting to "en"');
+      sourceLocale = 'en';
+    }
+    
+    const documentId = dbArticle.documentId || article.documentId;
     
     strapi.log.info(`[Translation] Source locale: ${sourceLocale}, documentId: ${documentId}`);
     
