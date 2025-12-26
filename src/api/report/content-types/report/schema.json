@@ -1,0 +1,64 @@
+{
+  "kind": "collectionType",
+  "collectionName": "reports",
+  "info": {
+    "singularName": "report",
+    "pluralName": "reports",
+    "displayName": "Report"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "abstract": {
+      "type": "blocks",
+      "required": true
+    },
+    "table_of_contents": {
+      "type": "blocks",
+      "required": true
+    },
+    "author": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::author.author"
+    },
+    "cover": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "report_file": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "files"
+      ]
+    },
+    "date": {
+      "type": "date",
+      "required": true
+    },
+    "categories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::category.category",
+      "mappedBy": "report"
+    }
+  }
+}

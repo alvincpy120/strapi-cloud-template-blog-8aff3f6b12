@@ -587,6 +587,7 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    report: Schema.Attribute.Relation<'manyToOne', 'api::report.report'>;
     slug: Schema.Attribute.UID;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -620,6 +621,45 @@ export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     siteDescription: Schema.Attribute.Text & Schema.Attribute.Required;
     siteName: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiReportReport extends Struct.CollectionTypeSchema {
+  collectionName: 'reports';
+  info: {
+    displayName: 'Report';
+    pluralName: 'reports';
+    singularName: 'report';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    abstract: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    author: Schema.Attribute.Relation<'oneToOne', 'api::author.author'>;
+    categories: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::category.category'
+    >;
+    cover: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    date: Schema.Attribute.Date & Schema.Attribute.Required;
+    description: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::report.report'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    report_file: Schema.Attribute.Media<'files'> & Schema.Attribute.Required;
+    table_of_contents: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1168,6 +1208,7 @@ declare module '@strapi/strapi' {
       'api::author.author': ApiAuthorAuthor;
       'api::category.category': ApiCategoryCategory;
       'api::global.global': ApiGlobalGlobal;
+      'api::report.report': ApiReportReport;
       'api::story.story': ApiStoryStory;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

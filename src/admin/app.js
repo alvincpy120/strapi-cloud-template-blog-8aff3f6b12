@@ -1,4 +1,5 @@
 import MobilePreviewButtons from './extensions/components/MobilePreviewButtons.jsx';
+import ExtractCoverButton from './extensions/components/ExtractCoverButton.jsx';
 
 const config = {
   locales: [
@@ -40,17 +41,25 @@ const bootstrap = (app) => {
     console.log('Content Manager plugin:', contentManager);
     
     if (contentManager && typeof contentManager.injectComponent === 'function') {
+      // Inject Mobile Preview Buttons
       contentManager.injectComponent('editView', 'right-links', {
         name: 'MobilePreviewButtons',
         Component: MobilePreviewButtons,
       });
       console.log('MobilePreviewButtons injected successfully');
+      
+      // Inject Extract Cover Button for Reports
+      contentManager.injectComponent('editView', 'right-links', {
+        name: 'ExtractCoverButton',
+        Component: ExtractCoverButton,
+      });
+      console.log('ExtractCoverButton injected successfully');
     } else {
       console.error('content-manager plugin or injectComponent not available');
       console.log('Available methods on contentManager:', contentManager ? Object.keys(contentManager) : 'undefined');
     }
   } catch (error) {
-    console.error('Failed to inject MobilePreviewButtons:', error);
+    console.error('Failed to inject components:', error);
   }
 };
 

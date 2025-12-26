@@ -36,6 +36,12 @@
         "videos",
         "audios"
       ]
+    },
+    "report": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::report.report",
+      "inversedBy": "categories"
     }
   }
 }
