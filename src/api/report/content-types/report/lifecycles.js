@@ -2,6 +2,8 @@
 
 const path = require('path');
 const fs = require('fs-extra');
+const https = require('https');
+const http = require('http');
 
 /**
  * Report lifecycle hooks for:
@@ -27,6 +29,39 @@ function startOperation(key) {
 
 function endOperation(key) {
   activeOperations.delete(key);
+}
+
+/**
+ * Download file from URL to buffer
+ */
+async function downloadFileToBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    
+    protocol.get(url, (response) => {
+      // Handle redirects
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        return downloadFileToBuffer(response.headers.location).then(resolve).catch(reject);
+      }
+      
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download file: HTTP ${response.statusCode}`));
+        return;
+      }
+      
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Check if URL is remote (http/https)
+ */
+function isRemoteUrl(url) {
+  return url && (url.startsWith('http://') || url.startsWith('https://'));
 }
 
 /**
@@ -62,26 +97,38 @@ async function extractAndSetCover(reportId, reportFileId) {
     }
     
     strapi.log.info(`[Report] Processing PDF: ${file.name}`);
+    strapi.log.info(`[Report] File URL: ${file.url}`);
     
-    // Get the file path
-    const uploadDir = strapi.dirs.static.public;
-    const pdfPath = path.join(uploadDir, file.url);
+    let pdfBuffer;
     
-    // Check if file exists
-    if (!await fs.pathExists(pdfPath)) {
-      strapi.log.error(`[Report] PDF file not found at path: ${pdfPath}`);
-      return;
+    // Check if file is remote (cloud storage) or local
+    if (isRemoteUrl(file.url)) {
+      strapi.log.info(`[Report] File is on cloud storage, downloading...`);
+      try {
+        pdfBuffer = await downloadFileToBuffer(file.url);
+        strapi.log.info(`[Report] Downloaded ${pdfBuffer.length} bytes`);
+      } catch (downloadError) {
+        strapi.log.error(`[Report] Failed to download PDF: ${downloadError.message}`);
+        return;
+      }
+    } else {
+      // Local file
+      const uploadDir = strapi.dirs.static.public;
+      const pdfPath = path.join(uploadDir, file.url);
+      
+      if (!await fs.pathExists(pdfPath)) {
+        strapi.log.error(`[Report] PDF file not found at path: ${pdfPath}`);
+        return;
+      }
+      
+      strapi.log.info(`[Report] PDF path: ${pdfPath}`);
+      pdfBuffer = await fs.readFile(pdfPath);
     }
-    
-    strapi.log.info(`[Report] PDF path: ${pdfPath}`);
     
     // Use mupdf to extract cover (dynamic import for ESM module)
     const mupdf = await import('mupdf');
     
     strapi.log.info(`[Report] Loading PDF with mupdf...`);
-    
-    // Read the PDF file
-    const pdfBuffer = await fs.readFile(pdfPath);
     
     // Open the document
     const doc = mupdf.Document.openDocument(pdfBuffer, 'application/pdf');
@@ -107,11 +154,10 @@ async function extractAndSetCover(reportId, reportFileId) {
     // Convert to PNG
     const pngBuffer = pixmap.asPNG();
     
-    // Create temp directory
-    const tempDir = path.join(uploadDir, 'uploads', 'temp');
-    await fs.ensureDir(tempDir);
+    strapi.log.info(`[Report] Generated PNG buffer: ${pngBuffer.length} bytes`);
     
-    // Generate output filename
+    // Create temp directory - use system temp on cloud
+    const tempDir = process.env.TMPDIR || process.env.TMP || '/tmp';
     const baseName = path.basename(file.name, '.pdf');
     const outputFileName = `${baseName}_cover_${Date.now()}.png`;
     const outputPath = path.join(tempDir, outputFileName);
@@ -126,28 +172,21 @@ async function extractAndSetCover(reportId, reportFileId) {
     // Upload to Strapi media library
     strapi.log.info(`[Report] Uploading cover to media library...`);
     
-    // Create a proper file object for Strapi upload service
-    const fsNative = require('fs');
-    const filePath = outputPath;
-    const fileName = `${baseName}_cover.png`;
+    const fileData = {
+      filepath: outputPath,
+      originalFileName: `${baseName}_cover.png`,
+      size: imageStats.size,
+      mimetype: 'image/png',
+    };
     
-    const uploadedFiles = await strapi.plugins.upload.services.upload.upload({
+    const uploadedFiles = await strapi.plugin('upload').service('upload').upload({
+      files: fileData,
       data: {
         fileInfo: {
-          name: fileName,
+          name: `${baseName}_cover.png`,
           caption: `Cover page of ${file.name}`,
           alternativeText: `Cover page of ${baseName}`,
         },
-      },
-      files: {
-        filepath: filePath,
-        path: filePath,
-        name: fileName,
-        originalFilename: fileName,
-        type: 'image/png',
-        mimetype: 'image/png',
-        size: imageStats.size,
-        getStream: () => fsNative.createReadStream(filePath),
       },
     });
     

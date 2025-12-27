@@ -2,6 +2,8 @@
 
 const path = require('path');
 const fs = require('fs-extra');
+const https = require('https');
+const http = require('http');
 
 /**
  * Controller to manually trigger cover extraction for a report
@@ -67,39 +69,75 @@ module.exports = {
 };
 
 /**
+ * Download file from URL to buffer
+ */
+async function downloadFileToBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https') ? https : http;
+    
+    protocol.get(url, (response) => {
+      // Handle redirects
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        return downloadFileToBuffer(response.headers.location).then(resolve).catch(reject);
+      }
+      
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download file: HTTP ${response.statusCode}`));
+        return;
+      }
+      
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Check if URL is remote (http/https)
+ */
+function isRemoteUrl(url) {
+  return url && (url.startsWith('http://') || url.startsWith('https://'));
+}
+
+/**
  * Extract cover image from PDF using mupdf
  */
 async function extractCoverFromPdf(reportId, reportFile) {
   strapi.log.info(`[Extract Cover] Processing PDF: ${reportFile.name}`);
+  strapi.log.info(`[Extract Cover] File URL: ${reportFile.url}`);
   
-  // Get the file path
-  const uploadDir = strapi.dirs.static.public;
-  const pdfPath = path.join(uploadDir, reportFile.url);
+  let pdfBuffer;
   
-  // Check if file exists
-  if (!await fs.pathExists(pdfPath)) {
-    strapi.log.error(`[Extract Cover] PDF file not found at path: ${pdfPath}`);
-    return null;
+  // Check if file is remote (cloud storage) or local
+  if (isRemoteUrl(reportFile.url)) {
+    strapi.log.info(`[Extract Cover] File is on cloud storage, downloading...`);
+    try {
+      pdfBuffer = await downloadFileToBuffer(reportFile.url);
+      strapi.log.info(`[Extract Cover] Downloaded ${pdfBuffer.length} bytes`);
+    } catch (downloadError) {
+      strapi.log.error(`[Extract Cover] Failed to download PDF: ${downloadError.message}`);
+      return null;
+    }
+  } else {
+    // Local file
+    const uploadDir = strapi.dirs.static.public;
+    const pdfPath = path.join(uploadDir, reportFile.url);
+    
+    if (!await fs.pathExists(pdfPath)) {
+      strapi.log.error(`[Extract Cover] PDF file not found at path: ${pdfPath}`);
+      return null;
+    }
+    
+    strapi.log.info(`[Extract Cover] PDF path: ${pdfPath}`);
+    pdfBuffer = await fs.readFile(pdfPath);
   }
-  
-  strapi.log.info(`[Extract Cover] PDF path: ${pdfPath}`);
   
   // Import mupdf (ESM module - must use dynamic import)
   const mupdf = await import('mupdf');
   
   strapi.log.info(`[Extract Cover] Converting PDF first page to image using mupdf...`);
-  
-  // Create temp directory
-  const tempDir = path.join(uploadDir, 'uploads', 'temp');
-  await fs.ensureDir(tempDir);
-  
-  // Generate output filename
-  const baseName = path.basename(reportFile.name, '.pdf');
-  const outputFileName = `${baseName}_cover_${Date.now()}.png`;
-  const outputPath = path.join(tempDir, outputFileName);
-  
-  // Read PDF file
-  const pdfBuffer = await fs.readFile(pdfPath);
   
   // Open document with mupdf
   const doc = mupdf.Document.openDocument(pdfBuffer, 'application/pdf');
@@ -123,6 +161,14 @@ async function extractCoverFromPdf(reportId, reportFile) {
   // Get PNG data
   const pngBuffer = pixmap.asPNG();
   
+  strapi.log.info(`[Extract Cover] Generated PNG buffer: ${pngBuffer.length} bytes`);
+  
+  // Create temp directory - use system temp on cloud, or uploads/temp locally
+  const tempDir = process.env.TMPDIR || process.env.TMP || '/tmp';
+  const baseName = path.basename(reportFile.name, '.pdf');
+  const outputFileName = `${baseName}_cover_${Date.now()}.png`;
+  const outputPath = path.join(tempDir, outputFileName);
+  
   // Save to temp file
   await fs.writeFile(outputPath, pngBuffer);
   
@@ -132,7 +178,7 @@ async function extractCoverFromPdf(reportId, reportFile) {
   const imageStats = await fs.stat(outputPath);
   strapi.log.info(`[Extract Cover] Cover image size: ${imageStats.size} bytes`);
   
-  // Upload to Strapi media library using the same format as bootstrap.js
+  // Upload to Strapi media library
   strapi.log.info(`[Extract Cover] Uploading cover to media library...`);
   
   const fileData = {
@@ -167,4 +213,3 @@ async function extractCoverFromPdf(reportId, reportFile) {
   
   return uploadedCover.id;
 }
-
