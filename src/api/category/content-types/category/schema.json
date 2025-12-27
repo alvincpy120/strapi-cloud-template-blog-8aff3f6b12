@@ -37,11 +37,11 @@
         "audios"
       ]
     },
-    "report": {
+    "reports": {
       "type": "relation",
-      "relation": "manyToOne",
+      "relation": "oneToMany",
       "target": "api::report.report",
-      "inversedBy": "categories"
+      "mappedBy": "category"
     }
   }
 }

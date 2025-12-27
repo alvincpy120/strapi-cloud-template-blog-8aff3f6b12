@@ -54,11 +54,11 @@
       "type": "date",
       "required": true
     },
-    "categories": {
+    "category": {
       "type": "relation",
-      "relation": "oneToMany",
+      "relation": "manyToOne",
       "target": "api::category.category",
-      "mappedBy": "report"
+      "inversedBy": "reports"
     },
     "rid": {
       "type": "uid"

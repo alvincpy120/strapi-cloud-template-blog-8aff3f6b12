@@ -640,10 +640,7 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
   attributes: {
     abstract: Schema.Attribute.Blocks & Schema.Attribute.Required;
     author: Schema.Attribute.Relation<'oneToOne', 'api::author.author'>;
-    categories: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::category.category'
-    >;
+    category: Schema.Attribute.Relation<'oneToMany', 'api::category.category'>;
     cover: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
