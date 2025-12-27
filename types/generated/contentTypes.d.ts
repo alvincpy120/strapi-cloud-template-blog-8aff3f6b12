@@ -587,7 +587,7 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
-    report: Schema.Attribute.Relation<'manyToOne', 'api::report.report'>;
+    reports: Schema.Attribute.Relation<'oneToMany', 'api::report.report'>;
     slug: Schema.Attribute.UID;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -640,7 +640,7 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
   attributes: {
     abstract: Schema.Attribute.Blocks & Schema.Attribute.Required;
     author: Schema.Attribute.Relation<'oneToOne', 'api::author.author'>;
-    category: Schema.Attribute.Relation<'oneToMany', 'api::category.category'>;
+    category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
     cover: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
