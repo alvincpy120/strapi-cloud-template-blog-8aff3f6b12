@@ -658,6 +658,7 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     report_file: Schema.Attribute.Media<'files'> & Schema.Attribute.Required;
+    rid: Schema.Attribute.UID;
     table_of_contents: Schema.Attribute.Blocks & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
