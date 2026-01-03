@@ -47,18 +47,27 @@ const MobilePreviewButtons = () => {
   const { form, contentType, id, document } = context;
   const formSlug = form?.values?.slug;
   const documentId = document?.documentId || id;
-  const locale = form?.values?.locale || document?.locale || 'en';
+  
+  // Get locale from multiple sources - check URL params as well
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlLocale = urlParams.get('plugins[i18n][locale]');
+  const locale = urlLocale || form?.values?.locale || document?.locale || context?.locale || 'en';
   
   // Get content type info from context
   const contentTypeUid = contentType?.uid;
   
-  // Debug logging
+  // Debug logging - expanded to help troubleshoot locale issues
   console.log('[MobilePreviewButtons] Context:', { 
     contentTypeUid, 
     formSlug, 
     documentId, 
     locale,
-    id 
+    urlLocale,
+    formLocale: form?.values?.locale,
+    documentLocale: document?.locale,
+    contextLocale: context?.locale,
+    id,
+    fullContext: context
   });
   
   // Determine the preview URL based on content type
@@ -67,6 +76,15 @@ const MobilePreviewButtons = () => {
   if (contentTypeUid === 'api::about.about') {
     // For About page, use /about
     previewUrl = `${LOVABLE_APP_URL}/about?preview=true&locale=${locale}`;
+  } else if (contentTypeUid === 'api::report.report') {
+    // For Reports, use /report/{documentId} with locale
+    if (documentId) {
+      previewUrl = `${LOVABLE_APP_URL}/report/${documentId}?preview=true&locale=${locale}`;
+    } else if (id) {
+      previewUrl = `${LOVABLE_APP_URL}/report/${id}?preview=true&locale=${locale}`;
+    } else {
+      previewUrl = null;
+    }
   } else if (formSlug) {
     // For articles with slugs, use /article/{slug}
     previewUrl = `${LOVABLE_APP_URL}/article/${formSlug}?preview=true&locale=${locale}`;
