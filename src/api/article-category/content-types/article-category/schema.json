@@ -1,14 +1,14 @@
 {
   "kind": "collectionType",
-  "collectionName": "categories",
+  "collectionName": "article_categories",
   "info": {
-    "singularName": "category",
-    "pluralName": "categories",
-    "displayName": "Category",
-    "description": "Organize your content into categories"
+    "singularName": "article-category",
+    "pluralName": "article-categories",
+    "displayName": "Article_Category",
+    "description": "Organize your articles into categories"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {
     "i18n": {
@@ -50,11 +50,11 @@
         "audios"
       ]
     },
-    "reports": {
+    "article": {
       "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::report.report",
-      "mappedBy": "category"
+      "relation": "manyToOne",
+      "target": "api::article.article",
+      "inversedBy": "article_categories"
     }
   }
 }

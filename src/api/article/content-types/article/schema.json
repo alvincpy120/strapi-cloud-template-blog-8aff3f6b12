@@ -37,6 +37,12 @@
       "type": "uid",
       "targetField": "title"
     },
+    "article_categories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::article-category.article-category",
+      "mappedBy": "article"
+    },
     "cover": {
       "type": "media",
       "pluginOptions": {
@@ -58,12 +64,6 @@
       "target": "api::author.author",
       "inversedBy": "articles"
     },
-    "category": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::category.category",
-      "inversedBy": "articles"
-    },
     "blocks": {
       "type": "dynamiczone",
       "pluginOptions": {
@@ -80,6 +80,14 @@
     },
     "cover_text": {
       "type": "string",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "feature": {
+      "type": "boolean",
       "pluginOptions": {
         "i18n": {
           "localized": true

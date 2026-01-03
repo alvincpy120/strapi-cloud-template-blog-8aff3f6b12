@@ -85,17 +85,17 @@ const MobilePreviewButtons = () => {
     } else {
       previewUrl = null;
     }
-  } else if (formSlug) {
-    // For articles with slugs, use /article/{slug}
-    previewUrl = `${LOVABLE_APP_URL}/article/${formSlug}?preview=true&locale=${locale}`;
-  } else if (documentId) {
-    // Fallback: use documentId if no slug
-    previewUrl = `${LOVABLE_APP_URL}/article/id/${documentId}?preview=true&locale=${locale}`;
-  } else if (id) {
-    // Fallback: use numeric ID
-    previewUrl = `${LOVABLE_APP_URL}/article/id/${id}?preview=true&locale=${locale}`;
+  } else if (contentTypeUid === 'api::article.article') {
+    // For Articles, use /article/{documentId} with locale
+    if (documentId) {
+      previewUrl = `${LOVABLE_APP_URL}/article/${documentId}?preview=true&locale=${locale}`;
+    } else if (id) {
+      previewUrl = `${LOVABLE_APP_URL}/article/${id}?preview=true&locale=${locale}`;
+    } else {
+      previewUrl = null;
+    }
   } else {
-    // Still show buttons but with a placeholder URL for new unsaved articles
+    // For other content types, no preview
     previewUrl = null;
   }
   
