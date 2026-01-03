@@ -1,7 +1,7 @@
 import React from 'react';
 import { unstable_useContentManagerContext as useContentManagerContext } from '@strapi/strapi/admin';
 
-const LOVABLE_APP_URL = 'https://cozy-thermometer-spot.lovable.app';
+const LOVABLE_APP_URL = 'https://gentle-wave-landing.lovable.app';
 const PREVIEW_SECRET = '0a53321e82da1baeb8e6a5f2c0b45df3ff297ac7150e8b89b35a67bd70feead5f642e9697a81290b3078cf21670ac8a0feb73c5300eaecec82e0008c1066ad8833197260c41175bf89c95b60c2cf11df0e94bf1397d57abd633c712ec317d2e30784d28729bf04b6cae53eb4136768786f61f820c53880eeeff4e920161833fd'; // Same value saved in Lovable
 
 // Generate HMAC signature (must match server-side implementation)
