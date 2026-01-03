@@ -14,13 +14,19 @@ export default ({ env }) => ({
     nps: env.bool('FLAG_NPS', true),
     promoteEE: env.bool('FLAG_PROMOTE_EE', true),
   },
-  // Preview configuration - returning null hides the preview button
+  // Preview configuration for articles
   preview: {
     enabled: true,
     config: {
-      allowedOrigins: env('CLIENT_URL', 'https://cozy-thermometer-spot.lovable.app'),
+      allowedOrigins: env('CLIENT_URL', 'https://gentle-wave-landing.lovable.app'),
       async handler(uid, { documentId, locale, status }) {
-        // Returning null tells Strapi not to show the preview button
+        // Only show preview for article content types
+        if (uid === 'api::article.article') {
+          const baseUrl = env('CLIENT_URL', 'https://gentle-wave-landing.lovable.app');
+          // Return the preview URL for articles
+          return `${baseUrl}/article/${documentId}`;
+        }
+        // Return null for other content types (hides preview button)
         return null;
       },
     },
