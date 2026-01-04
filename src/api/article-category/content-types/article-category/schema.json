@@ -50,11 +50,11 @@
         "audios"
       ]
     },
-    "article": {
+    "articles": {
       "type": "relation",
-      "relation": "manyToOne",
+      "relation": "oneToMany",
       "target": "api::article.article",
-      "inversedBy": "article_categories"
+      "mappedBy": "article_category"
     }
   }
 }

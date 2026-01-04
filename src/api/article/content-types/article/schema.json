@@ -37,11 +37,11 @@
       "type": "uid",
       "targetField": "title"
     },
-    "article_categories": {
+    "article_category": {
       "type": "relation",
-      "relation": "oneToMany",
+      "relation": "manyToOne",
       "target": "api::article-category.article-category",
-      "mappedBy": "article"
+      "inversedBy": "articles"
     },
     "cover": {
       "type": "media",

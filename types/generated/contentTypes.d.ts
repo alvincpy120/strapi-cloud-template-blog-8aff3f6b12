@@ -477,7 +477,7 @@ export interface ApiArticleCategoryArticleCategory
     };
   };
   attributes: {
-    article: Schema.Attribute.Relation<'manyToOne', 'api::article.article'>;
+    articles: Schema.Attribute.Relation<'oneToMany', 'api::article.article'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -529,8 +529,8 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     };
   };
   attributes: {
-    article_categories: Schema.Attribute.Relation<
-      'oneToMany',
+    article_category: Schema.Attribute.Relation<
+      'manyToOne',
       'api::article-category.article-category'
     >;
     author: Schema.Attribute.Relation<'manyToOne', 'api::author.author'>;
