@@ -93,6 +93,14 @@
           "localized": true
         }
       }
+    },
+    "publication_date": {
+      "type": "date",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
     }
   }
 }
