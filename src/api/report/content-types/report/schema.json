@@ -84,6 +84,22 @@
         "files"
       ]
     },
+    "recommendation": {
+      "type": "blocks",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
+    "reference": {
+      "type": "blocks",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      }
+    },
     "date": {
       "type": "date",
       "pluginOptions": {

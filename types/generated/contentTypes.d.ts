@@ -535,7 +535,14 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     >;
     author: Schema.Attribute.Relation<'manyToOne', 'api::author.author'>;
     blocks: Schema.Attribute.DynamicZone<
-      ['shared.media', 'shared.quote', 'shared.rich-text', 'shared.slider']
+      [
+        'shared.media',
+        'shared.quote',
+        'shared.rich-text',
+        'shared.slider',
+        'shared.recommendations',
+        'shared.reference',
+      ]
     > &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
@@ -765,6 +772,18 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::report.report'>;
     publishedAt: Schema.Attribute.DateTime;
+    recommendation: Schema.Attribute.Blocks &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    reference: Schema.Attribute.Blocks &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
     report_file: Schema.Attribute.Media<'files'> &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
