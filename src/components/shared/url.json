@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_shared_urls",
+  "info": {
+    "displayName": "url"
+  },
+  "options": {},
+  "attributes": {
+    "link": {
+      "type": "text"
+    },
+    "apa": {
+      "type": "richtext"
+    }
+  },
+  "config": {}
+}

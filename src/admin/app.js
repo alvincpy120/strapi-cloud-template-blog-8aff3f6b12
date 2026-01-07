@@ -1,5 +1,6 @@
 import MobilePreviewButtons from './extensions/components/MobilePreviewButtons.jsx';
 import ExtractCoverButton from './extensions/components/ExtractCoverButton.jsx';
+import GenerateAPAButton from './extensions/components/GenerateAPAButton.jsx';
 
 const config = {
   locales: [
@@ -54,6 +55,13 @@ const bootstrap = (app) => {
         Component: ExtractCoverButton,
       });
       console.log('ExtractCoverButton injected successfully');
+      
+      // Inject Generate APA Button for Articles
+      contentManager.injectComponent('editView', 'right-links', {
+        name: 'GenerateAPAButton',
+        Component: GenerateAPAButton,
+      });
+      console.log('GenerateAPAButton injected successfully');
     } else {
       console.error('content-manager plugin or injectComponent not available');
       console.log('Available methods on contentManager:', contentManager ? Object.keys(contentManager) : 'undefined');

@@ -40,7 +40,7 @@ export interface SharedReference extends Struct.ComponentSchema {
     displayName: 'Reference';
   };
   attributes: {
-    body: Schema.Attribute.Blocks;
+    url: Schema.Attribute.Component<'shared.url', true>;
   };
 }
 
@@ -94,6 +94,17 @@ export interface SharedSubtitle extends Struct.ComponentSchema {
   };
 }
 
+export interface SharedUrl extends Struct.ComponentSchema {
+  collectionName: 'components_shared_urls';
+  info: {
+    displayName: 'url';
+  };
+  attributes: {
+    apa: Schema.Attribute.RichText;
+    link: Schema.Attribute.Text;
+  };
+}
+
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
@@ -105,6 +116,7 @@ declare module '@strapi/strapi' {
       'shared.seo': SharedSeo;
       'shared.slider': SharedSlider;
       'shared.subtitle': SharedSubtitle;
+      'shared.url': SharedUrl;
     }
   }
 }

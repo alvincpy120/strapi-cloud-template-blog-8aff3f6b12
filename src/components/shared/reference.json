@@ -5,8 +5,10 @@
   },
   "options": {},
   "attributes": {
-    "body": {
-      "type": "blocks"
+    "url": {
+      "type": "component",
+      "component": "shared.url",
+      "repeatable": true
     }
   },
   "config": {}
