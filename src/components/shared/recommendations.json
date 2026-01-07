@@ -1,0 +1,13 @@
+{
+  "collectionName": "components_shared_recommendations",
+  "info": {
+    "displayName": "Recommendation"
+  },
+  "options": {},
+  "attributes": {
+    "body": {
+      "type": "richtext"
+    }
+  },
+  "config": {}
+}
