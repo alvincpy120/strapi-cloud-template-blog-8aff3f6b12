@@ -5,6 +5,39 @@ const path = require('path');
 const mime = require('mime-types');
 const { categories, authors, articles, global, about } = require('../data/data.json');
 
+async function configureComponentLayouts() {
+  try {
+    // Set the layout for Recommendation component to show introduction before body
+    const store = strapi.store({
+      type: 'plugin',
+      name: 'content_manager',
+      key: 'configuration_components::shared.recommendations',
+    });
+
+    const currentConfig = await store.get();
+    
+    // Update the layout to ensure introduction comes before body
+    const newConfig = {
+      ...currentConfig,
+      layouts: {
+        edit: [
+          [{ name: 'introduction', size: 12 }],
+          [{ name: 'body', size: 12 }]
+        ]
+      },
+      settings: {
+        ...currentConfig?.settings,
+        mainField: 'introduction'
+      }
+    };
+
+    await store.set({ value: newConfig });
+    console.log('[Bootstrap] Recommendation component layout configured');
+  } catch (error) {
+    console.error('[Bootstrap] Error configuring component layouts:', error.message);
+  }
+}
+
 async function seedExampleApp() {
   const shouldImportSeedData = await isFirstRun();
 
@@ -22,6 +55,9 @@ async function seedExampleApp() {
       'Seed data has already been imported. We cannot reimport unless you clear your database first.'
     );
   }
+  
+  // Always configure component layouts
+  await configureComponentLayouts();
 }
 
 async function isFirstRun() {
