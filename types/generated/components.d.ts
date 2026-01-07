@@ -29,7 +29,8 @@ export interface SharedRecommendations extends Struct.ComponentSchema {
     displayName: 'Recommendation';
   };
   attributes: {
-    body: Schema.Attribute.RichText;
+    body: Schema.Attribute.Component<'shared.subtitle', true>;
+    introduction: Schema.Attribute.Text;
   };
 }
 
@@ -82,6 +83,17 @@ export interface SharedSlider extends Struct.ComponentSchema {
   };
 }
 
+export interface SharedSubtitle extends Struct.ComponentSchema {
+  collectionName: 'components_shared_subtitles';
+  info: {
+    displayName: 'subtitle';
+  };
+  attributes: {
+    content: Schema.Attribute.Blocks;
+    subtitle: Schema.Attribute.String;
+  };
+}
+
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
@@ -92,6 +104,7 @@ declare module '@strapi/strapi' {
       'shared.rich-text': SharedRichText;
       'shared.seo': SharedSeo;
       'shared.slider': SharedSlider;
+      'shared.subtitle': SharedSubtitle;
     }
   }
 }

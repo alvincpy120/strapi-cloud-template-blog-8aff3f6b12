@@ -5,8 +5,13 @@
   },
   "options": {},
   "attributes": {
+    "introduction": {
+      "type": "text"
+    },
     "body": {
-      "type": "richtext"
+      "type": "component",
+      "component": "shared.subtitle",
+      "repeatable": true
     }
   },
   "config": {}
