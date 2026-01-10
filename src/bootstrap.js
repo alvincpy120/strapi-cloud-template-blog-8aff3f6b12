@@ -38,6 +38,70 @@ async function configureComponentLayouts() {
   }
 }
 
+async function configureArticleLayout() {
+  try {
+    // Set the layout for Article content type to show full_title and short_title at top
+    const store = strapi.store({
+      type: 'plugin',
+      name: 'content_manager',
+      key: 'configuration_content_types::api::article.article',
+    });
+
+    const currentConfig = await store.get();
+    
+    // Update the layout to ensure full_title and short_title are at the top
+    // Clear any existing field descriptions (replaced by live character counter)
+    const newConfig = {
+      ...currentConfig,
+      layouts: {
+        ...currentConfig?.layouts,
+        edit: [
+          [{ name: 'full_title', size: 6 }, { name: 'short_title', size: 6 }],
+          [{ name: 'description', size: 12 }],
+          [{ name: 'cover', size: 6 }, { name: 'cover_text', size: 6 }],
+          [{ name: 'publication_date', size: 6 }, { name: 'feature', size: 6 }],
+          [{ name: 'author', size: 6 }, { name: 'slug', size: 6 }],
+          [{ name: 'reports', size: 12 }],
+          [{ name: 'blocks', size: 12 }]
+        ]
+      },
+      metadatas: {
+        ...currentConfig?.metadatas,
+        full_title: {
+          ...currentConfig?.metadatas?.full_title,
+          edit: {
+            ...currentConfig?.metadatas?.full_title?.edit,
+            description: '', // Clear description - replaced by live counter
+          }
+        },
+        short_title: {
+          ...currentConfig?.metadatas?.short_title,
+          edit: {
+            ...currentConfig?.metadatas?.short_title?.edit,
+            description: '', // Clear description - replaced by live counter
+          }
+        },
+        description: {
+          ...currentConfig?.metadatas?.description,
+          edit: {
+            ...currentConfig?.metadatas?.description?.edit,
+            description: '', // Clear description - replaced by live counter
+          }
+        }
+      },
+      settings: {
+        ...currentConfig?.settings,
+        mainField: 'full_title'
+      }
+    };
+
+    await store.set({ value: newConfig });
+    console.log('[Bootstrap] Article content type layout configured');
+  } catch (error) {
+    console.error('[Bootstrap] Error configuring article layout:', error.message);
+  }
+}
+
 async function seedExampleApp() {
   const shouldImportSeedData = await isFirstRun();
 
@@ -58,6 +122,7 @@ async function seedExampleApp() {
   
   // Always configure component layouts
   await configureComponentLayouts();
+  await configureArticleLayout();
 }
 
 async function isFirstRun() {

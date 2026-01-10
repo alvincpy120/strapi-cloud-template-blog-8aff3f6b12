@@ -1,6 +1,7 @@
 import MobilePreviewButtons from './extensions/components/MobilePreviewButtons.jsx';
 import ExtractCoverButton from './extensions/components/ExtractCoverButton.jsx';
 import GenerateAPAButton from './extensions/components/GenerateAPAButton.jsx';
+import ArticleCharCounter from './extensions/components/ArticleCharCounter.jsx';
 
 const config = {
   locales: [
@@ -62,6 +63,13 @@ const bootstrap = (app) => {
         Component: GenerateAPAButton,
       });
       console.log('GenerateAPAButton injected successfully');
+      
+      // Inject Article Character Counter (injects counters below fields)
+      contentManager.injectComponent('editView', 'right-links', {
+        name: 'ArticleCharCounter',
+        Component: ArticleCharCounter,
+      });
+      console.log('ArticleCharCounter injected successfully');
     } else {
       console.error('content-manager plugin or injectComponent not available');
       console.log('Available methods on contentManager:', contentManager ? Object.keys(contentManager) : 'undefined');
