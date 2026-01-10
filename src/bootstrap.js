@@ -61,7 +61,7 @@ async function configureArticleLayout() {
           [{ name: 'cover', size: 6 }, { name: 'cover_text', size: 6 }],
           [{ name: 'publication_date', size: 6 }, { name: 'feature', size: 6 }],
           [{ name: 'author', size: 6 }, { name: 'slug', size: 6 }],
-          [{ name: 'reports', size: 12 }],
+          [{ name: 'article_categories', size: 6 }, { name: 'reports', size: 6 }],
           [{ name: 'blocks', size: 12 }]
         ]
       },

@@ -528,6 +528,10 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     };
   };
   attributes: {
+    article_categories: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::article-category.article-category'
+    >;
     author: Schema.Attribute.Relation<'manyToOne', 'api::author.author'>;
     blocks: Schema.Attribute.DynamicZone<
       [

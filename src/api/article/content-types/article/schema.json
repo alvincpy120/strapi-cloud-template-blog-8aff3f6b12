@@ -112,6 +112,11 @@
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::report.report"
+    },
+    "article_categories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::article-category.article-category"
     }
   }
 }

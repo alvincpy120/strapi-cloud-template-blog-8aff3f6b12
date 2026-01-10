@@ -418,7 +418,7 @@ module.exports = {
             
             // Process if no APA yet, or if APA is just a placeholder "Retrieved from..."
             const needsProcessing = urlItem.link && 
-              (!urlItem.apa || urlItem.apa.startsWith('Retrieved from'));
+              (!urlItem.apa || urlItem.apa.includes('Retrieved from'));
             
             if (needsProcessing) {
               console.log(`Processing URL: ${urlItem.link}`);
