@@ -21,6 +21,11 @@ module.exports = [
   'strapi::logger',
   'strapi::query',
   'strapi::body',
+  // Custom middleware to filter reports relation (only show reports with report_file)
+  {
+    name: 'global::filter-reports-relation',
+    config: {},
+  },
   'strapi::session',
   'strapi::favicon',
   'strapi::public',
